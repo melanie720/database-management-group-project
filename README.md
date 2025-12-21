@@ -1,6 +1,6 @@
 # database-management-group-project
 
-Hello.
+Hello,
 
 This repository contains the supporting files of my database management course group project.
 We built a database environment for a business travel management firm that supports the creation of various performance reports involving the firm's travel agents and clients.
