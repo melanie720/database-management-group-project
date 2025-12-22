@@ -201,28 +201,30 @@ create procedure p_view_stats(
                 from travel_agents
                 join client_groups on travel_agent_client_group_id = client_group_id
                     where travel_agent_id = @agent_id
-            if @@rowcount < 1 throw 50031, 'Error retrieving travel agent information.', 1
+            if @@rowcount <> 1 throw 50031, 'Error retrieving travel agent information.', 1
         end
 
-            select distinct client_group_name, cast(avg(t.travel_agent_avg_rating) over (partition by c.client_group_name) as decimal(3,2)) as overall_avg_rating_by_group,
-                first_value(t.travel_agent_first_name + ' ' + t.travel_agent_last_name) over (order by t.travel_agent_avg_rating desc) as ta_with_highest_rating,
-                max(t.travel_agent_avg_rating) over (partition by c.client_group_name) as ta_avg_rating,
-                first_value(t.travel_agent_first_name + ' ' + t.travel_agent_last_name) over (order by t.travel_agent_avg_rating) as ta_with_lowest_rating,
-                min(t.travel_agent_avg_rating) over (partition by c.client_group_name) as ta_avg_rating,
-                first_value(cc.client_comp_name) over (order by r.rating_value) as lowest_rating_client, 
-                first_value(r.rating_value) over (order by r.rating_value) as rating_value,
-                first_value(tr.traveler_first_name + ' ' + tr.traveler_last_name) over (order by r.rating_value) as rating_by,
-                first_value(r.rating_comments) over (order by r.rating_value) as rating_comments
-                    from travel_agents as t 
-                    join client_groups as c on t.travel_agent_client_group_id = c.client_group_id
-                    join client_companies as cc on cc.client_comp_group_id = c.client_group_id
-                    join travelers as tr on tr.traveler_company = cc.client_comp_id
-                    join ratings as r on r.rating_submitted_by = tr.traveler_id
-                        where client_group_name = @client_group
-                        group by c.client_group_name, cc.client_comp_name, t.travel_agent_avg_rating, t.travel_agent_first_name, t.travel_agent_last_name, 
-                            r.rating_value, r.rating_comments, tr.traveler_first_name, tr.traveler_last_name
-                        order by client_group_name;
-            if @@rowcount <> 1 throw 50030, 'Error retrieving client group information.', 1
+        select distinct top 1 with ties
+            client_group_name,
+            cast(avg(t.travel_agent_avg_rating) over (partition by c.client_group_name) as decimal(3,2)) as overall_avg_rating_by_group,
+            first_value(t.travel_agent_first_name + ' ' + t.travel_agent_last_name) over (order by t.travel_agent_avg_rating desc) as ta_with_highest_rating,
+            max(t.travel_agent_avg_rating) over (partition by c.client_group_name) as ta_avg_rating_highest,
+            first_value(t.travel_agent_first_name + ' ' + t.travel_agent_last_name) over (order by t.travel_agent_avg_rating) as ta_with_lowest_rating,
+            min(t.travel_agent_avg_rating) over (partition by c.client_group_name) as ta_avg_rating_lowest,
+            cc.client_comp_name as lowest_rating_client, 
+            r.rating_value as rating_value,
+            tr.traveler_first_name + ' ' + tr.traveler_last_name as rating_from,
+            r.rating_comments as rating_comments
+                from travel_agents as t 
+                join client_groups as c on t.travel_agent_client_group_id = c.client_group_id
+                join client_companies as cc on cc.client_comp_group_id = c.client_group_id
+                join travelers as tr on tr.traveler_company = cc.client_comp_id
+                join ratings as r on r.rating_submitted_by = tr.traveler_id
+                    where client_group_name = @client_group
+                    group by r.rating_value, client_group_name, cc.client_comp_name, tr.traveler_first_name, tr.traveler_last_name, r.rating_comments,
+                        t.travel_agent_avg_rating, t.travel_agent_first_name, t.travel_agent_last_name
+                    order by r.rating_value
+        if @@rowcount < 1 throw 50032, 'Error retrieving client group information.', 1
         commit
     end try
     begin catch
@@ -244,3 +246,4 @@ exec p_view_stats @client_group = 'B';
 -- Travel agent with the highest rating and their individual rating.
 -- Travel agent with the lowest rating and their individual rating.
 -- Client company name that has given the lowest rating along with that rating value, the traveler who submitted it, and any rating comments.
+
