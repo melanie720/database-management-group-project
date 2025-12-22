@@ -245,5 +245,6 @@ exec p_view_stats @client_group = 'B';
 -- An overall average agent rating.
 -- Travel agent with the highest rating and their individual rating.
 -- Travel agent with the lowest rating and their individual rating.
--- Client company name that has given the lowest rating along with that rating value, the traveler who submitted it, and any rating comments.
+-- Client company name(s) that submitted the lowest rating(s) along with the rating value(s), the traveler(s) who submitted, and any rating comments.
+
 
